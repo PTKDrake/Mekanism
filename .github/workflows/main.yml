@@ -15,7 +15,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
       - name: Execute Gradle build
-        run: ./gradlew build
+        run: ./gradlew.bat build
       - uses: actions/upload-artifact@v1
         with:
           name: artifact
