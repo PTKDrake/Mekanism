@@ -34,17 +34,20 @@ import mekanism.common.util.ChemicalUtil;
 import mekanism.common.util.MekanismUtils;
 import mekanism.common.util.StorageUtils;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.PlayerTickEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingEvent.LivingJumpEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent.BreakSpeed;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class CommonPlayerTickHandler {
@@ -105,18 +108,19 @@ public class CommonPlayerTickHandler {
         }
 
         ItemStack chest = player.getItemBySlot(EquipmentSlot.CHEST);
-        if (isJetpackOn(player, chest)) {
-            JetpackMode mode = getJetpackMode(chest);
+        ItemStack jetpackStack = ItemJetpack.getJetpack(player, chest);
+        JetpackMode mode = getJetpackModeIfOn(player, jetpackStack);
+        if (mode != JetpackMode.DISABLED) {
             if (handleJetpackMotion(player, mode, () -> Mekanism.keyMap.has(player.getUUID(), KeySync.ASCEND))) {
                 player.fallDistance = 0.0F;
                 if (player instanceof ServerPlayer serverPlayer) {
                     serverPlayer.connection.aboveGroundTickCount = 0;
                 }
             }
-            if (chest.getItem() instanceof ItemJetpack jetpack) {
-                jetpack.useGas(chest, 1);
+            if (jetpackStack.getItem() instanceof ItemJetpack jetpack) {
+                jetpack.useGas(jetpackStack, 1);
             } else {
-                ((ItemMekaSuitArmor) chest.getItem()).useGas(chest, MekanismGases.HYDROGEN.get(), 1);
+                ((ItemMekaSuitArmor) jetpackStack.getItem()).useGas(jetpackStack, MekanismGases.HYDROGEN.get(), 1);
             }
         }
 
@@ -179,21 +183,21 @@ public class CommonPlayerTickHandler {
         return true;
     }
 
-    private static boolean isJetpackOn(Player player, ItemStack chest) {
+    private static JetpackMode getJetpackModeIfOn(Player player, ItemStack chest) {
         if (!chest.isEmpty() && !player.isSpectator()) {
             JetpackMode mode = getJetpackMode(chest);
-            if (mode == JetpackMode.NORMAL) {
-                return Mekanism.keyMap.has(player.getUUID(), KeySync.ASCEND);
-            } else if (mode == JetpackMode.HOVER) {
+            if (mode != JetpackMode.DISABLED) {
                 boolean ascending = Mekanism.keyMap.has(player.getUUID(), KeySync.ASCEND);
-                boolean descending = player.isDescending();
-                if (!ascending || descending) {
-                    return !isOnGroundOrSleeping(player);
+                if (mode == JetpackMode.HOVER) {
+                    if (ascending && !player.isDescending() || !isOnGroundOrSleeping(player)) {
+                        return mode;
+                    }
+                } else if (mode == JetpackMode.NORMAL && ascending) {
+                    return mode;
                 }
-                return true;
             }
         }
-        return false;
+        return JetpackMode.DISABLED;
     }
 
     public static boolean isGravitationalModulationReady(Player player) {
@@ -206,7 +210,6 @@ public class CommonPlayerTickHandler {
         return isGravitationalModulationReady(player) && player.getAbilities().flying;
     }
 
-    /** Will return null if jetpack mode is not active */
     public static JetpackMode getJetpackMode(ItemStack stack) {
         if (stack.getItem() instanceof ItemJetpack jetpack && ChemicalUtil.hasGas(stack)) {
             return jetpack.getMode(stack);
@@ -381,5 +384,22 @@ public class CommonPlayerTickHandler {
     }
 
     private record FallEnergyInfo(@Nullable IEnergyContainer container, FloatSupplier damageRatio, FloatingLongSupplier energyCost) {
+    }
+
+    @SubscribeEvent
+    public void getBreakSpeed(BreakSpeed event) {
+        Player player = event.getPlayer();
+        ItemStack legs = player.getItemBySlot(EquipmentSlot.LEGS);
+        if (!legs.isEmpty() && MekanismAPI.getModuleHelper().isEnabled(legs, MekanismModules.GYROSCOPIC_STABILIZATION_UNIT)) {
+            float speed = event.getNewSpeed();
+            if (player.isEyeInFluid(FluidTags.WATER) && !EnchantmentHelper.hasAquaAffinity(player)) {
+                speed *= 5.0F;
+            }
+
+            if (!player.isOnGround()) {
+                speed *= 5.0F;
+            }
+            event.setNewSpeed(speed);
+        }
     }
 }

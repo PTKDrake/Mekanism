@@ -255,7 +255,7 @@ public class Mekanism {
         versionNumber = new Version(ModLoadingContext.get().getActiveContainer());
         packetHandler = new PacketHandler();
         //Super early hooks, only reliable thing is for checking dependencies that we declare we are after
-        hooks.hookConstructor();
+        hooks.hookConstructor(modEventBus);
         if (hooks.CraftTweakerLoaded && !DatagenModLoader.isRunningDataGen()) {
             //Attempt to grab the mod event bus for CraftTweaker so that we can register our custom content in their namespace
             // to make it clearer which chemicals were added by CraftTweaker, and which are added by actual mods.
@@ -370,7 +370,7 @@ public class Mekanism {
               MekanismModules.VISION_ENHANCEMENT_UNIT, MekanismModules.NUTRITIONAL_INJECTION_UNIT);
         MekanismIMC.addMekaSuitBodyarmorModules(MekanismModules.JETPACK_UNIT, MekanismModules.GRAVITATIONAL_MODULATING_UNIT, MekanismModules.CHARGE_DISTRIBUTION_UNIT,
               MekanismModules.DOSIMETER_UNIT, MekanismModules.GEIGER_UNIT, MekanismModules.ELYTRA_UNIT);
-        MekanismIMC.addMekaSuitPantsModules(MekanismModules.LOCOMOTIVE_BOOSTING_UNIT);
+        MekanismIMC.addMekaSuitPantsModules(MekanismModules.LOCOMOTIVE_BOOSTING_UNIT, MekanismModules.GYROSCOPIC_STABILIZATION_UNIT);
         MekanismIMC.addMekaSuitBootsModules(MekanismModules.HYDRAULIC_PROPULSION_UNIT, MekanismModules.MAGNETIC_ATTRACTION_UNIT, MekanismModules.FROST_WALKER_UNIT);
     }
 
